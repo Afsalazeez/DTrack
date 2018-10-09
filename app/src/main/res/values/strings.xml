@@ -3,4 +3,7 @@
 
     <!-- String value which falls over the button to receive location data -->
     <string name="get_location">Get location</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="location_logs">Location logs</string>
 </resources>

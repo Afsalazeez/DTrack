@@ -9,7 +9,10 @@ import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.CountDownTimer;
+import android.os.Handler;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -69,7 +72,15 @@ public class MainActivity extends AppCompatActivity {
 
     TextView locationTextView;
 
+    TextView totalDistanceTravelledTextView;
+
+    TextView timeTextView;
+
     Button getLocationButton;
+
+    Button startButton;
+
+    Button stopButton;
 
     private LocationCallback mLocationCallback;
 
@@ -81,7 +92,15 @@ public class MainActivity extends AppCompatActivity {
 
     private Location mLastLocation;
 
+    private float totalDistanceTravelled = 0;
+
     private String mLastUpdatedTime;
+
+    private long timeInMilliSeconds = 0L;
+
+    private long startTime = 0L;
+
+    private Handler customTimeUpdationHandler = new Handler();
 
     @Override
     public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
@@ -98,7 +117,15 @@ public class MainActivity extends AppCompatActivity {
 
         locationTextView = (TextView) findViewById(R.id.location_display_text_view);
 
+        totalDistanceTravelledTextView = (TextView) findViewById(R.id.total_distance_in_meters);
+
+        timeTextView = (TextView) findViewById(R.id.time_text_view);
+
         getLocationButton = (Button) findViewById(R.id.get_location_button);
+
+        startButton = (Button) findViewById(R.id.start_button);
+
+        stopButton = (Button) findViewById(R.id.stop_button);
 
         getLocationButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -106,6 +133,21 @@ public class MainActivity extends AppCompatActivity {
 
                 mRequestingLocationUpdates = true;
                 getLastKnownLocation();
+            }
+        });
+
+        startButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startTime = SystemClock.uptimeMillis();
+                customTimeUpdationHandler.postDelayed(updateTimerThread, 0);
+            }
+        });
+
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                customTimeUpdationHandler.removeCallbacks(updateTimerThread);
             }
         });
 
@@ -162,6 +204,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         updateValuesFromBundle(savedInstanceState);
+
 
     }
 
@@ -229,7 +272,7 @@ public class MainActivity extends AppCompatActivity {
         mLocationRequest = LocationRequest.create();
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         mLocationRequest.setInterval(10000);
-        mLocationRequest.setFastestInterval(5000);
+        mLocationRequest.setFastestInterval(2000);
 
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
                 .addLocationRequest(mLocationRequest);
@@ -285,6 +328,13 @@ public class MainActivity extends AppCompatActivity {
         mGoogleApiClient.connect();
     }
 
+    /**
+     * Callback received when a settings changes has been completed.
+     *
+     * @param requestCode The code for changing location settings
+     * @param resultCode  Result code received by user choice
+     * @param data
+     */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
 
@@ -309,6 +359,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // This method fetches last updated location using {@link mFusedLocationProviderClient}
     private void getLastKnownLocation() {
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -346,6 +397,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
     private void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
@@ -362,55 +414,114 @@ public class MainActivity extends AppCompatActivity {
         mFusedLocationProviderClient.requestLocationUpdates(mLocationRequest, mLocationCallback, null);
     }
 
+    // Stop receiving updates when activity is paused
     @Override
     protected void onPause() {
         super.onPause();
         stopLocationUpdates();
     }
 
+    // This method stops receiving location updates from {@link mFusedLocationProviderClient}
     private void stopLocationUpdates() {
         mFusedLocationProviderClient.removeLocationUpdates(mLocationCallback);
     }
 
+    /**
+     * This method updates the UI with Longitude and Latitude values from
+     * the location updated
+     *
+     * @param currentLocation Location updated from (@link mFusedLocationProviderClient}
+     */
+
     public void updateUI(Location currentLocation) {
+
         Double latitude = currentLocation.getLatitude();
         Double longitude = currentLocation.getLongitude();
 
         String locationString = "Longitude : " + String.valueOf(longitude)
                 + " Latitude : " + String.valueOf(latitude);
 
-        locationTextView.append(new StringBuilder().append("\n ").append(locationString).toString());
+        locationTextView.append(new StringBuilder().append("\n").append(locationString).toString());
 
-        //calculateDistanceInMeters(mLastLocation, currentLocation);
+        if (mLastLocation == null) {
 
-        //saveLastLocation(currentLocation);
+            saveLastLocation(currentLocation);
+        } else {
+
+            calculateDistanceInMeters(mLastLocation, currentLocation);
+        }
+
+        saveLastLocation(currentLocation);
     }
 
     public void saveLastLocation(Location location) {
         mLastLocation = location;
     }
 
-//    public void calculateDistanceInMeters(Location lastLocation, Location currentLocation) {
-//
-//        // Earth radius in meters
-//        double earthRadius = 6371000;
-//
-//        double deltaLatitude = Math.toRadians(currentLocation.getLatitude() - lastLocation.getLatitude());
-//        double deltaLongitude = Math.toRadians(currentLocation.getLongitude() - lastLocation.getLongitude());
-//
-//        double val = Math.sin(deltaLatitude / 2) * Math.sin(deltaLatitude / 2) +
-//                Math.cos(Math.toRadians(currentLocation.getLatitude())) * Math.cos(Math.toRadians(currentLocation.getLatitude()))
-//                        * Math.sin(deltaLongitude / 2) * Math.sin(deltaLongitude / 2);
-//        double val2 = 2 * Math.atan2(Math.sqrt(val), Math.sqrt(1 - val));
-//
-//        float distanceInMeters = (float) (earthRadius * val2);
-//
-//        updateDistanceUI(distanceInMeters);
-//
-//    }
-//
-//    public void updateDistanceUI(float distanceInMeters) {
-//        locationTextView.append(new StringBuilder().append("Distance : ").append(String.valueOf(distanceInMeters)).toString());
-//    }
+    /**
+     * This method calculates distance between two locations in meters and updates the UI
+     *
+     * @param lastLocation    Location previously stored
+     * @param currentLocation Location recently updated
+     */
+
+    public void calculateDistanceInMeters(Location lastLocation, Location currentLocation) {
+
+        // Earth radius in meters
+        double earthRadius = 6371000;
+
+        double deltaLatitude = Math.toRadians(currentLocation.getLatitude() - lastLocation.getLatitude());
+        double deltaLongitude = Math.toRadians(currentLocation.getLongitude() - lastLocation.getLongitude());
+
+        double val = Math.sin(deltaLatitude / 2) * Math.sin(deltaLatitude / 2) +
+                Math.cos(Math.toRadians(currentLocation.getLatitude())) * Math.cos(Math.toRadians(currentLocation.getLatitude()))
+                        * Math.sin(deltaLongitude / 2) * Math.sin(deltaLongitude / 2);
+        double val2 = 2 * Math.atan2(Math.sqrt(val), Math.sqrt(1 - val));
+
+        float distanceInMeters = (float) (earthRadius * val2);
+
+        totalDistanceTravelled = totalDistanceTravelled + distanceInMeters;
+
+        updateDistanceUI(distanceInMeters);
+
+    }
+
+    /**
+     * This method append location distance String value to the locationTextView
+     *
+     * @param distanceInMeters float value which was calculated using calculateDistanceInMeters
+     */
+    public void updateDistanceUI(float distanceInMeters) {
+        locationTextView.append(new StringBuilder().append("\nDistance : ").append(String.valueOf(distanceInMeters)).toString());
+
+        totalDistanceTravelledTextView.setText(new StringBuilder().append("Total Distance : ").append(totalDistanceTravelled)
+                .append(" meters").toString());
+    }
+
+    /**
+     * Runnable thread for calculating time taken
+     */
+    private Runnable updateTimerThread = new Runnable() {
+        @Override
+        public void run() {
+
+            timeInMilliSeconds = SystemClock.uptimeMillis() - startTime;
+
+            int seconds = (int) (timeInMilliSeconds / 1000);
+
+            int minutes = seconds / 60;
+
+            if (seconds > 60) {
+                seconds = seconds % 60;
+            }
+
+
+            String timeValue = String.format("%02d", minutes) + ":" + String.format("%02d", seconds);
+
+            timeTextView.setText(timeValue);
+
+            customTimeUpdationHandler.postDelayed(this, 0);
+        }
+    };
 
 }
