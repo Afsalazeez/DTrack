@@ -141,6 +141,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 startTime = SystemClock.uptimeMillis();
                 customTimeUpdationHandler.postDelayed(updateTimerThread, 0);
+                createLocationRequest();
             }
         });
 
@@ -168,40 +169,6 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-
-        /**
-         * From API level 23 users can revoke any permissions at any time
-         * So we must check if we have that permission every time we perform an
-         * operation that requires that permission
-         *
-         * The codes below checks if the activity have the permission to get the
-         * user location
-         */
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-
-            // Permission not granted
-            // Should we show and explanation
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)) {
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission
-            } else {
-                // No explanation needed, request the permission
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSION_TO_GET_LOCATION);
-
-                // MY_PERMISSION_TO_GET_LOCATION is an
-                // app-defined constant. The callback method gets the
-                // result of the request.
-            }
-
-
-        } else {
-            // Permission has already been granted
-            createLocationRequest();
-        }
 
         updateValuesFromBundle(savedInstanceState);
 
@@ -362,17 +329,33 @@ public class MainActivity extends AppCompatActivity {
     // This method fetches last updated location using {@link mFusedLocationProviderClient}
     private void getLastKnownLocation() {
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
+        /**
+         * From API level 23 users can revoke any permissions at any time
+         * So we must check if we have that permission every time we perform an
+         * operation that requires that permission
+         *
+         * The codes below checks if the activity have the permission to get the
+         * user location
+         */
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            // Permission not granted
+            // Should we show and explanation
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.ACCESS_FINE_LOCATION)) {
+                // Show an explanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission
+            } else {
+                // No explanation needed, request the permission
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        MY_PERMISSION_TO_GET_LOCATION);
+
+                // MY_PERMISSION_TO_GET_LOCATION is an
+                // app-defined constant. The callback method gets the
+                // result of the request.
+            }
         } else {
             mFusedLocationProviderClient.getLastLocation()
                     .addOnSuccessListener(new OnSuccessListener<Location>() {
