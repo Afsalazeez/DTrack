@@ -56,52 +56,78 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
+    // static final integer value for checking permission to get location
     private static final int MY_PERMISSION_TO_GET_LOCATION = 1001;
 
+    // static final integer value for turning on location services settings
     private static final int REQUEST_CHECK_SETTINGS = 101;
 
+    // static final String value key for location updates
     private static final String REQUESTING_LOCATION_UPDATES_KEY = "location_request_key";
 
-    private static final String KEY_LOCATION = "location";
-
-    private static final String KEY_LAST_UPDATED_TIME_STRING = "last_updated_time_string";
-
+    // GoogleApiClient object
     private GoogleApiClient mGoogleApiClient;
 
+    // FusedLocationProviderClient object
     private FusedLocationProviderClient mFusedLocationProviderClient;
 
+    // TextView  to display location logs
     TextView locationTextView;
 
+    // TextView which displays total distance travelled by user
     TextView totalDistanceTravelledTextView;
 
+    // TextView which displays time for every second change
     TextView timeTextView;
 
+    // TextView which displays speed of the user travelling
+    TextView speedTextView;
+
+    // Button which makes display the current or last known
+    // location of the user in the location logs
     Button getLocationButton;
 
+    // Button to start tracking
     Button startButton;
 
+    // Button to stop tracking
     Button stopButton;
 
+    // Callbacks which receives location updates
     private LocationCallback mLocationCallback;
 
+    // Boolean value for storing if updates are received
+    // or not
     private boolean mRequestingLocationUpdates;
 
+    // LocationRequest object
     private LocationRequest mLocationRequest;
 
-    private Location mCurrentLocation;
-
+    // Location object for storing last know location
     private Location mLastLocation;
 
+    // float value which stores the distance
+    // travelled by the user
     private float totalDistanceTravelled = 0;
 
-    private String mLastUpdatedTime;
-
+    // float value which stores the time in
+    // milliseconds passed after the user starts
+    // navigation
     private long timeInMilliSeconds = 0L;
 
+    // time of the system when user starts navigation
+    // is recorded as the start time.
     private long startTime = 0L;
 
+    // Handler is used as a timer..
     private Handler customTimeUpdationHandler = new Handler();
 
+    /**
+     * onSaveInstanceState, the
+     *
+     * @param outState
+     * @param outPersistentState
+     */
     @Override
     public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
         outState.putBoolean(REQUESTING_LOCATION_UPDATES_KEY, mRequestingLocationUpdates);
@@ -121,6 +147,8 @@ public class MainActivity extends AppCompatActivity {
 
         timeTextView = (TextView) findViewById(R.id.time_text_view);
 
+        speedTextView = (TextView) findViewById(R.id.speed_text_view);
+
         getLocationButton = (Button) findViewById(R.id.get_location_button);
 
         startButton = (Button) findViewById(R.id.start_button);
@@ -139,19 +167,50 @@ public class MainActivity extends AppCompatActivity {
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startTime = SystemClock.uptimeMillis();
-                customTimeUpdationHandler.postDelayed(updateTimerThread, 0);
+
                 createLocationRequest();
+                startButton.setActivated(false);
+                mRequestingLocationUpdates = true;
             }
         });
 
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
                 customTimeUpdationHandler.removeCallbacks(updateTimerThread);
+                stopLocationUpdates();
+                timeTextView.setText(getString(R.string.time));
+                totalDistanceTravelled = 0;
+                timeInMilliSeconds = 0;
+                totalDistanceTravelledTextView.setText(getString(R.string.distance));
+
+                locationTextView.setText("Location Logs : ");
+                stopButton.setActivated(false);
+                mRequestingLocationUpdates = false;
             }
         });
 
+        /**
+         * From API level 23 users can revoke any permissions at any time
+         * So we must check if we have that permission every time we perform an
+         * operation that requires that permission
+         *
+         * The codes below checks if the activity have the permission to get the
+         * user location
+         */
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            // Permission not granted
+            // Should we show and explanation
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    MY_PERMISSION_TO_GET_LOCATION);
+
+            // MY_PERMISSION_TO_GET_LOCATION is an
+            // app-defined constant. The callback method gets the
+            // result of the request.s
+        }
 
         mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -185,20 +244,6 @@ public class MainActivity extends AppCompatActivity {
             mRequestingLocationUpdates = savedInstanceState.getBoolean(
                     REQUESTING_LOCATION_UPDATES_KEY);
         }
-        //...
-
-        // Update the value of mCurrentLocation from the Bundle and update the UI to show the
-        // correct longitude and latitude
-        if (savedInstanceState.keySet().contains(KEY_LOCATION)) {
-            // Since KEY_LOCATION was found in the Bundle, we can be sure that the mCurrentLocation
-            // is not null
-            mCurrentLocation = savedInstanceState.getParcelable(KEY_LOCATION);
-        }
-
-        // Update the value of mLastUpdatedTime from the Bundle and update the UI
-        if (savedInstanceState.keySet().contains(KEY_LAST_UPDATED_TIME_STRING)) {
-            mLastUpdatedTime = savedInstanceState.getString(KEY_LAST_UPDATED_TIME_STRING);
-        }
         // We update the UI here...
     }
 
@@ -218,7 +263,6 @@ public class MainActivity extends AppCompatActivity {
                 if (grantResults.length > 0 && grantResults[0] ==
                         PackageManager.PERMISSION_GRANTED) {
                     // Permission is granted move to the next location related task we need to
-                    createLocationRequest();
 
                 } else {
                     // Permission is denied, Disable the
@@ -236,49 +280,68 @@ public class MainActivity extends AppCompatActivity {
      */
     protected void createLocationRequest() {
 
-        mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(10000);
-        mLocationRequest.setFastestInterval(2000);
+        /**
+         * From API level 23 users can revoke any permissions at any time
+         * So we must check if we have that permission every time we perform an
+         * operation that requires that permission
+         *
+         * The codes below checks if the activity have the permission to get the
+         * user location
+         */
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
 
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
-                .addLocationRequest(mLocationRequest);
-        builder.setAlwaysShow(true);
+            // Permission not granted
+            // Ask user for permission
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    MY_PERMISSION_TO_GET_LOCATION);
+        } else {
 
-        SettingsClient client = LocationServices.getSettingsClient(this);
+            mLocationRequest = LocationRequest.create();
+            mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+            mLocationRequest.setInterval(10000);
+            mLocationRequest.setFastestInterval(2000);
 
-        Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
-        task.addOnSuccessListener(new OnSuccessListener<LocationSettingsResponse>() {
-            @Override
-            public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
-                // All location settings are satisfied. The client can initialize
-                // location requests here...
-                startLocationUpdates();
-            }
-        });
+            LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+                    .addLocationRequest(mLocationRequest);
+            builder.setAlwaysShow(true);
 
-        task.addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                if (e instanceof ResolvableApiException) {
-                    // Location settings are not satisfied. But could be fixed by showing the
-                    // user dialog
-                    try {
-                        // Cast to a resolvable exception.
-                        ResolvableApiException apiException = (ResolvableApiException) e;
-                        // Show the dialogue by calling startResolutionForResult(),
-                        // and check the result in onActivityResult().
-                        apiException.startResolutionForResult(MainActivity.this,
-                                REQUEST_CHECK_SETTINGS);
-                    } catch (IntentSender.SendIntentException e1) {
-                        // Ignore the error
-                        e1.printStackTrace();
-                    } catch (ClassCastException e2) {
-                        // Ignore, should be an impossible error
+            SettingsClient client = LocationServices.getSettingsClient(this);
+
+            Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
+            task.addOnSuccessListener(new OnSuccessListener<LocationSettingsResponse>() {
+                @Override
+                public void onSuccess(LocationSettingsResponse locationSettingsResponse) {
+                    // All location settings are satisfied. The client can initialize
+                    // location requests here...
+                    startLocationUpdates();
+                }
+            });
+
+            task.addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception e) {
+                    if (e instanceof ResolvableApiException) {
+                        // Location settings are not satisfied. But could be fixed by showing the
+                        // user dialog
+                        try {
+                            // Cast to a resolvable exception.
+                            ResolvableApiException apiException = (ResolvableApiException) e;
+                            // Show the dialogue by calling startResolutionForResult(),
+                            // and check the result in onActivityResult().
+                            apiException.startResolutionForResult(MainActivity.this,
+                                    REQUEST_CHECK_SETTINGS);
+                        } catch (IntentSender.SendIntentException e1) {
+                            // Ignore the error
+                            e1.printStackTrace();
+                        } catch (ClassCastException e2) {
+                            // Ignore, should be an impossible error
+                        }
                     }
                 }
-            }
-        });
+            });
+
+        }
 
 
     }
@@ -382,6 +445,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void startLocationUpdates() {
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -394,7 +458,11 @@ public class MainActivity extends AppCompatActivity {
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
+
         mFusedLocationProviderClient.requestLocationUpdates(mLocationRequest, mLocationCallback, null);
+
+        startTime = SystemClock.uptimeMillis();
+        customTimeUpdationHandler.postDelayed(updateTimerThread, 0);
     }
 
     // Stop receiving updates when activity is paused
@@ -465,8 +533,17 @@ public class MainActivity extends AppCompatActivity {
 
         totalDistanceTravelled = totalDistanceTravelled + distanceInMeters;
 
+        float timeInSeconds = timeInMilliSeconds / 1000;
+
+        float speed = distanceInMeters / timeInSeconds;
+
         updateDistanceUI(distanceInMeters);
 
+    }
+
+    public void updateSpeedUI(float speed) {
+
+        speedTextView.setText(new StringBuilder().append(String.valueOf(speed)).append(" m/s").toString());
     }
 
     /**
@@ -477,8 +554,8 @@ public class MainActivity extends AppCompatActivity {
     public void updateDistanceUI(float distanceInMeters) {
         locationTextView.append(new StringBuilder().append("\nDistance : ").append(String.valueOf(distanceInMeters)).toString());
 
-        totalDistanceTravelledTextView.setText(new StringBuilder().append("Total Distance : ").append(totalDistanceTravelled)
-                .append(" meters").toString());
+        totalDistanceTravelledTextView.setText(new StringBuilder().append(totalDistanceTravelled)
+                .append(" mtr(s)").toString());
     }
 
     /**
