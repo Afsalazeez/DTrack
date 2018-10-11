@@ -122,25 +122,17 @@ public class MainActivity extends AppCompatActivity {
     // Handler is used as a timer..
     private Handler customTimeUpdationHandler = new Handler();
 
-    /**
-     * onSaveInstanceState, the
-     *
-     * @param outState
-     * @param outPersistentState
-     */
-    @Override
-    public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
-        outState.putBoolean(REQUESTING_LOCATION_UPDATES_KEY, mRequestingLocationUpdates);
-        super.onSaveInstanceState(outState, outPersistentState);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Initializing GoogleApiClient for requesting location updates.
+        // We can't have LocationAPI requests if GoogleAPIClient is not connected.
         initGoogleClientAPI();
 
+        // binding all the views to the MainActivity
         locationTextView = (TextView) findViewById(R.id.location_display_text_view);
 
         totalDistanceTravelledTextView = (TextView) findViewById(R.id.total_distance_in_meters);
@@ -155,31 +147,40 @@ public class MainActivity extends AppCompatActivity {
 
         stopButton = (Button) findViewById(R.id.stop_button);
 
+
+        // Adding an onClickListener to the getLocationButton
         getLocationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
-                mRequestingLocationUpdates = true;
                 getLastKnownLocation();
             }
         });
 
+        // Adding an onClickListener to the startButton
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
                 createLocationRequest();
                 startButton.setActivated(false);
-                mRequestingLocationUpdates = true;
             }
         });
 
+        // Adding an onClickListener to the stopButton
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
+                // Removing callbacks from the Timer thread so
+                // it won't update time
                 customTimeUpdationHandler.removeCallbacks(updateTimerThread);
+
+                // stopping location updates
                 stopLocationUpdates();
+
+                // Changing all the UI , integer and String values to
+                // first values
                 timeTextView.setText(getString(R.string.time));
                 totalDistanceTravelled = 0;
                 timeInMilliSeconds = 0;
@@ -187,7 +188,6 @@ public class MainActivity extends AppCompatActivity {
 
                 locationTextView.setText("Location Logs : ");
                 stopButton.setActivated(false);
-                mRequestingLocationUpdates = false;
             }
         });
 
@@ -212,15 +212,27 @@ public class MainActivity extends AppCompatActivity {
             // result of the request.s
         }
 
+        /**
+         * Initializing {@link FusedLocationProviderClient} object
+         * This object uses GPS and internet connection to fetch accurate
+         * location data of the user
+         */
         mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
+        /**
+         * This callback receives location updates from the
+         * {@link FusedLocationProviderClient} object
+         */
         mLocationCallback = new LocationCallback() {
 
             @Override
             public void onLocationResult(LocationResult locationResult) {
+
+                // Sometimes, locationResults can be null,
                 if (locationResult == null) {
                     return;
                 }
+
                 for (Location location : locationResult.getLocations()) {
                     // Update UI with location data
                     updateUI(location);
@@ -228,23 +240,6 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-
-        updateValuesFromBundle(savedInstanceState);
-
-
-    }
-
-    private void updateValuesFromBundle(Bundle savedInstanceState) {
-
-        if (savedInstanceState == null) {
-            return;
-        }
-        // Update the value of mRequestingLocationUpdates from the Bundle.
-        if (savedInstanceState.keySet().contains(REQUESTING_LOCATION_UPDATES_KEY)) {
-            mRequestingLocationUpdates = savedInstanceState.getBoolean(
-                    REQUESTING_LOCATION_UPDATES_KEY);
-        }
-        // We update the UI here...
     }
 
     /**
@@ -435,14 +430,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (mRequestingLocationUpdates) {
-            startLocationUpdates();
-        }
-    }
-
 
     private void startLocationUpdates() {
 
@@ -537,10 +524,17 @@ public class MainActivity extends AppCompatActivity {
 
         float speed = distanceInMeters / timeInSeconds;
 
+        updateSpeedUI(speed);
+
         updateDistanceUI(distanceInMeters);
 
     }
 
+    /**
+     * This method updates speed value in the UI
+     *
+     * @param speed Current speed of the user calculated
+     */
     public void updateSpeedUI(float speed) {
 
         speedTextView.setText(new StringBuilder().append(String.valueOf(speed)).append(" m/s").toString());
@@ -559,7 +553,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Runnable thread for calculating time taken
+     * Runnable thread for calculating time taken.
+     * This thread is used by the Handler to udpate time
+     * in the Activity
      */
     private Runnable updateTimerThread = new Runnable() {
         @Override
