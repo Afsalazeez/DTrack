@@ -122,6 +122,12 @@ public class MainActivity extends AppCompatActivity {
     // Handler is used as a timer..
     private Handler customTimeUpdationHandler = new Handler();
 
+    public static final String DISTANCE_IN_METERS = "distance_in_meters";
+
+    public static final String TIME_IN_MILLISECONDS = "time_in_milliseconds";
+
+    public static final String AVERAGE_SPEED = "average_speed";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -179,6 +185,17 @@ public class MainActivity extends AppCompatActivity {
                 // stopping location updates
                 stopLocationUpdates();
 
+                Long time = timeInMilliSeconds / 1000;
+
+                float averageSpeed = totalDistanceTravelled / time;
+
+                // Creates an intent to the resultActivity to print results
+                Intent resultIntent = new Intent(MainActivity.this, ResultActivity.class);
+                resultIntent.putExtra(DISTANCE_IN_METERS, totalDistanceTravelled);
+                resultIntent.putExtra(TIME_IN_MILLISECONDS, timeInMilliSeconds);
+                resultIntent.putExtra(AVERAGE_SPEED, averageSpeed);
+                startActivity(resultIntent);
+
                 // Changing all the UI , integer and String values to
                 // first values
                 timeTextView.setText(getString(R.string.time));
@@ -186,8 +203,10 @@ public class MainActivity extends AppCompatActivity {
                 timeInMilliSeconds = 0;
                 totalDistanceTravelledTextView.setText(getString(R.string.distance));
 
+
                 locationTextView.setText("Location Logs : ");
                 stopButton.setActivated(false);
+
             }
         });
 

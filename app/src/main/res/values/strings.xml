@@ -9,4 +9,6 @@
     <string name="distance">0.0 mtr(s)</string>
     <string name="time">00:00</string>
     <string name="speed">0 m/s</string>
+    <string name="total_distance_travelled">Total Distance travelled</string>
+    <string name="time_elapsed">Time elapsed</string>
 </resources>
